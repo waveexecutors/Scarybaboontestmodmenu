@@ -1,0 +1,47 @@
+name: Build Scary Baboon Quest mod
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/**'
+      - '.github/workflows/build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      # The official MelonLoader NuGet package is itself a ZIP-format .nupkg.
+      # Extract it into refs/ so the workflow has a visible, reproducible reference cache.
+      - name: Download and extract MelonLoader reference package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p refs
+          curl -fL             https://api.nuget.org/v3-flatcontainer/lavagang.melonloader/0.7.3/lavagang.melonloader.0.7.3.nupkg             -o refs/melonloader.nupkg
+          mkdir -p refs/melonloader-package
+          unzip -q -o refs/melonloader.nupkg -d refs/melonloader-package
+          test -s refs/melonloader-package/LavaGang.MelonLoader.nuspec
+          echo "Official MelonLoader package extracted."
+
+      - name: Restore and compile
+        run: dotnet build src/ScaryBaboonTrollMod.csproj --configuration Release --output publish
+
+      - name: Verify output
+        run: |
+          test -s publish/ScaryBaboonTrollMod.dll
+          file publish/ScaryBaboonTrollMod.dll
+
+      - name: Upload mod DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScaryBaboonTrollMod-Quest
+          path: publish/ScaryBaboonTrollMod.dll
+          if-no-files-found: error
